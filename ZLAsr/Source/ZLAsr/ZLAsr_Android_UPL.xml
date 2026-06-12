@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+    <init>
+        <log text="ZLAsr UPL init"/>
+    </init>
+
+    <androidManifestUpdates>
+        <addPermission android:name="android.permission.RECORD_AUDIO"/>
+        <addPermission android:name="android.permission.INTERNET"/>
+        <addPermission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    </androidManifestUpdates>
+
+    <gameActivityImportAdditions>
+        <insert>
+import com.zl.asr.ZLAsrBridge;
+        </insert>
+    </gameActivityImportAdditions>
+
+    <gameActivityOnCreateAdditions>
+        <insert>
+            ZLAsrBridge.initialize(this);
+        </insert>
+    </gameActivityOnCreateAdditions>
+
+    <buildGradleAdditions>
+        <insert>
+dependencies {
+    implementation(name: 'asr-realtime-release', ext: 'aar')
+    implementation(name: 'asr-one-sentence-release', ext: 'aar')
+    implementation(name: 'asr-file-recognize-release', ext: 'aar')
+    implementation 'com.squareup.okhttp3:okhttp:4.2.2'
+    implementation 'com.google.code.gson:gson:2.8.5'
+}
+        </insert>
+    </buildGradleAdditions>
+
+    <AARImports>
+        <insertValue value="libs/asr-realtime-release.aar"/>
+        <insertValue value="libs/asr-one-sentence-release.aar"/>
+        <insertValue value="libs/asr-file-recognize-release.aar"/>
+    </AARImports>
+
+    <resourceCopies>
+        <copyDir src="$S(PluginDir)/Source/ThirdParty/Android/Java" dst="$S(BuildDir)/src"/>
+    </resourceCopies>
+</root>
