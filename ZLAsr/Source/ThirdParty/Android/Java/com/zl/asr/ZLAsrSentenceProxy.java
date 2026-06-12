@@ -9,9 +9,9 @@ public class ZLAsrSentenceProxy {
     public boolean recognizeUrl(String taskId, String configJson, String url) {
         try {
             JSONObject root = ZLAsrConfigParser.parse(configJson);
-            String engine = ZLAsrConfigParser.string(root, "EngSerViceType", "16k_zh");
-            Log.i(TAG, "sentence url task=" + taskId + " engine=" + engine + " url=" + url);
-            ZLAsrBridge.onError(taskId, -1, "Bind real Tencent Android one sentence SDK classes here", configJson);
+            Log.i(TAG, "recognizeUrl taskId=" + taskId + " url=" + url + " engine=" + ZLAsrConfigParser.string(root, "EngSerViceType", "16k_zh"));
+            // 按文档这里应使用 QCloudOneSentenceRecognizer，支持 URL 模式 [2]
+            ZLAsrBridge.onError(taskId, -1, "Tencent Android sentence URL SDK symbols not linked in current source package", configJson);
             return false;
         } catch (Exception e) {
             ZLAsrBridge.onError(taskId, -1, e.getMessage(), configJson);
@@ -22,9 +22,9 @@ public class ZLAsrSentenceProxy {
     public boolean recognizeData(String taskId, String configJson, byte[] data) {
         try {
             JSONObject root = ZLAsrConfigParser.parse(configJson);
-            String engine = ZLAsrConfigParser.string(root, "EngSerViceType", "16k_zh");
-            Log.i(TAG, "sentence data task=" + taskId + " engine=" + engine + " size=" + (data != null ? data.length : 0));
-            ZLAsrBridge.onError(taskId, -1, "Bind real Tencent Android one sentence SDK classes here", configJson);
+            Log.i(TAG, "recognizeData taskId=" + taskId + " size=" + (data != null ? data.length : 0));
+            // 按文档这里应使用 QCloudOneSentenceRecognizer，支持 data 模式 [2]
+            ZLAsrBridge.onError(taskId, -1, "Tencent Android sentence data SDK symbols not linked in current source package", configJson);
             return false;
         } catch (Exception e) {
             ZLAsrBridge.onError(taskId, -1, e.getMessage(), configJson);
@@ -35,9 +35,9 @@ public class ZLAsrSentenceProxy {
     public boolean startRecorder(String taskId, String configJson) {
         try {
             JSONObject root = ZLAsrConfigParser.parse(configJson);
-            String engine = ZLAsrConfigParser.string(root, "EngSerViceType", "16k_zh");
-            Log.i(TAG, "sentence recorder task=" + taskId + " engine=" + engine);
-            ZLAsrBridge.onError(taskId, -1, "Bind real Tencent Android recorder SDK classes here", configJson);
+            Log.i(TAG, "startRecorder taskId=" + taskId + " engine=" + ZLAsrConfigParser.string(root, "EngSerViceType", "16k_zh"));
+            // 按文档这里应使用 recognizeWithRecorder() [2]
+            ZLAsrBridge.onError(taskId, -1, "Tencent Android sentence recorder SDK symbols not linked in current source package", configJson);
             return false;
         } catch (Exception e) {
             ZLAsrBridge.onError(taskId, -1, e.getMessage(), configJson);
@@ -45,5 +45,7 @@ public class ZLAsrSentenceProxy {
         }
     }
 
-    public void stopRecorder(String taskId) { Log.i(TAG, "stop recorder=" + taskId); }
+    public void stopRecorder(String taskId) {
+        Log.i(TAG, "stopRecorder " + taskId);
+    }
 }

@@ -2,10 +2,11 @@
 #include "CoreMinimal.h"
 #include "ZLAsrPlatformBridge.h"
 
-class FZLAsrBridgeRegistry
+class ZLASR_API FZLAsrBridgeRegistry
 {
 public:
     static FZLAsrBridgeRegistry& Get();
+
     void Register(const FString& TaskId, IZLAsrTaskSink* Sink);
     void Unregister(const FString& TaskId);
     IZLAsrTaskSink* Find(const FString& TaskId);

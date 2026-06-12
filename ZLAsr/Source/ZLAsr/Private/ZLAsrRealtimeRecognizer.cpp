@@ -6,26 +6,38 @@ UZLAsrRealtimeRecognizer::UZLAsrRealtimeRecognizer()
 {
     TaskId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
     Bridge = FZLAsrPlatformBridgeFactory::Create();
-    if (Bridge.IsValid()) Bridge->Init(this);
+    if (Bridge.IsValid())
+    {
+        Bridge->Init(this);
+    }
 }
 
 bool UZLAsrRealtimeRecognizer::StartRealtimeRecognition(const FZLAsrRealtimeConfig& Config)
 {
-    if (!Bridge.IsValid() || bRunning) return false;
+    if (!Bridge.IsValid() || bRunning)
+    {
+        return false;
+    }
     bRunning = Bridge->StartRealtime(TaskId, Config);
     return bRunning;
 }
 
 void UZLAsrRealtimeRecognizer::StopRealtimeRecognition()
 {
-    if (Bridge.IsValid()) Bridge->StopRealtime(TaskId);
+    if (Bridge.IsValid())
+    {
+        Bridge->StopRealtime(TaskId);
+    }
 }
 
 void UZLAsrRealtimeRecognizer::CancelRealtimeRecognition()
 {
     bRunning = false;
     FZLAsrBridgeRegistry::Get().Unregister(TaskId);
-    if (Bridge.IsValid()) Bridge->CancelRealtime(TaskId);
+    if (Bridge.IsValid())
+    {
+        Bridge->CancelRealtime(TaskId);
+    }
 }
 
 void UZLAsrRealtimeRecognizer::HandleRealtimeSlice(const FZLAsrSegmentResult& Result)

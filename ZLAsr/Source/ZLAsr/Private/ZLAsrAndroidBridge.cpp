@@ -1,7 +1,7 @@
 #include "ZLAsrPlatformBridge.h"
 #include "ZLAsrJsonUtils.h"
 #include "ZLAsrBridgeRegistry.h"
-#include "Misc/FileHelper.h"
+#include "Async/Async.h"
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidApplication.h"
@@ -9,25 +9,21 @@
 #include "Android/AndroidJavaEnv.h"
 
 static jclass GBridgeClass = nullptr;
-static jmethodID GCtor = nullptr;
+static jmethodID GRealtimeCtor = nullptr;
+static jmethodID GSentenceCtor = nullptr;
+static jmethodID GFileCtor = nullptr;
+
 static jmethodID GRealtimeStart = nullptr;
 static jmethodID GRealtimeStop = nullptr;
 static jmethodID GRealtimeCancel = nullptr;
+
 static jmethodID GSentenceUrl = nullptr;
 static jmethodID GSentenceData = nullptr;
 static jmethodID GSentenceRecorderStart = nullptr;
 static jmethodID GSentenceRecorderStop = nullptr;
+
 static jmethodID GFilePath = nullptr;
 static jmethodID GFileData = nullptr;
-
-static FString JStringToFString(JNIEnv* Env, jstring Str)
-{
-    if (!Str) return FString();
-    const char* Chars = Env->GetStringUTFChars(Str, 0);
-    FString Out(UTF8_TO_TCHAR(Chars));
-    Env->ReleaseStringUTFChars(Str, Chars);
-    return Out;
-}
 
 class FZLAsrAndroidBridge final : public IZLAsrPlatformBridge
 {
@@ -35,48 +31,50 @@ public:
     virtual bool Init(IZLAsrTaskSink* InSink) override
     {
         Sink = InSink;
-        return CacheJNI();
+        CacheJNI();
+        return true;
     }
 
     virtual bool StartRealtime(const FString& TaskId, const FZLAsrRealtimeConfig& Config) override
     {
         if (!CacheJNI()) return false;
         Register(TaskId);
+
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
-        jobject Obj = Env->NewObject(GBridgeClass, GCtor);
-        if (!Obj) return false;
-        const FString Json = FZLAsrJsonUtils::ToJsonString(Config);
-        jstring JTask = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
-        jstring JCfg = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
-        jboolean Ok = Env->CallBooleanMethod(Obj, GRealtimeStart, JTask, JCfg);
-        Env->DeleteLocalRef(JTask);
-        Env->DeleteLocalRef(JCfg);
-        Env->DeleteLocalRef(Obj);
-        return Ok == JNI_TRUE;
+        jobject Proxy = Env->NewObject(GBridgeClass, GRealtimeCtor);
+        if (!Proxy) return false;
+
+        jstring JTaskId = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
+        FString Json = FZLAsrJsonUtils::ToJsonString(Config);
+        jstring JConfig = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
+
+        const bool bOk = Env->CallBooleanMethod(Proxy, GRealtimeStart, JTaskId, JConfig);
+        Env->DeleteLocalRef(JTaskId);
+        Env->DeleteLocalRef(JConfig);
+        Env->DeleteLocalRef(Proxy);
+        return bOk;
     }
 
     virtual void StopRealtime(const FString& TaskId) override
     {
         if (!CacheJNI()) return;
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
-        jobject Obj = Env->NewObject(GBridgeClass, GCtor);
-        if (!Obj) return;
-        jstring JTask = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
-        Env->CallVoidMethod(Obj, GRealtimeStop, JTask);
-        Env->DeleteLocalRef(JTask);
-        Env->DeleteLocalRef(Obj);
+        jobject Proxy = Env->NewObject(GBridgeClass, GRealtimeCtor);
+        jstring JTaskId = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
+        Env->CallVoidMethod(Proxy, GRealtimeStop, JTaskId);
+        Env->DeleteLocalRef(JTaskId);
+        Env->DeleteLocalRef(Proxy);
     }
 
     virtual void CancelRealtime(const FString& TaskId) override
     {
         if (!CacheJNI()) return;
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
-        jobject Obj = Env->NewObject(GBridgeClass, GCtor);
-        if (!Obj) return;
-        jstring JTask = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
-        Env->CallVoidMethod(Obj, GRealtimeCancel, JTask);
-        Env->DeleteLocalRef(JTask);
-        Env->DeleteLocalRef(Obj);
+        jobject Proxy = Env->NewObject(GBridgeClass, GRealtimeCtor);
+        jstring JTaskId = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
+        Env->CallVoidMethod(Proxy, GRealtimeCancel, JTaskId);
+        Env->DeleteLocalRef(JTaskId);
+        Env->DeleteLocalRef(Proxy);
     }
 
     virtual bool StartSentenceFromUrl(const FString& TaskId, const FZLAsrSentenceConfig& Config, const FString& Url) override
@@ -84,24 +82,26 @@ public:
         if (!CacheJNI()) return false;
         Register(TaskId);
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
-        jobject Obj = Env->NewObject(GBridgeClass, GCtor);
-        if (!Obj) return false;
-        const FString Json = FZLAsrJsonUtils::ToJsonString(Config);
-        jstring JTask = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
-        jstring JCfg = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
+        jobject Proxy = Env->NewObject(GBridgeClass, GSentenceCtor);
+        FString Json = FZLAsrJsonUtils::ToJsonString(Config);
+        jstring JTaskId = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
+        jstring JConfig = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
         jstring JUrl = Env->NewStringUTF(TCHAR_TO_UTF8(*Url));
-        jboolean Ok = Env->CallBooleanMethod(Obj, GSentenceUrl, JTask, JCfg, JUrl);
-        Env->DeleteLocalRef(JTask);
-        Env->DeleteLocalRef(JCfg);
+        bool bOk = Env->CallBooleanMethod(Proxy, GSentenceUrl, JTaskId, JConfig, JUrl);
+        Env->DeleteLocalRef(JTaskId);
+        Env->DeleteLocalRef(JConfig);
         Env->DeleteLocalRef(JUrl);
-        Env->DeleteLocalRef(Obj);
-        return Ok == JNI_TRUE;
+        Env->DeleteLocalRef(Proxy);
+        return bOk;
     }
 
     virtual bool StartSentenceFromFile(const FString& TaskId, const FZLAsrSentenceConfig& Config, const FString& FilePath) override
     {
         TArray<uint8> Bytes;
-        if (!FFileHelper::LoadFileToArray(Bytes, *FilePath)) return false;
+        if (!FFileHelper::LoadFileToArray(Bytes, *FilePath))
+        {
+            return false;
+        }
         return StartSentenceFromMemory(TaskId, Config, Bytes);
     }
 
@@ -110,22 +110,21 @@ public:
         if (!CacheJNI()) return false;
         Register(TaskId);
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
-        jobject Obj = Env->NewObject(GBridgeClass, GCtor);
-        if (!Obj) return false;
-        const FString Json = FZLAsrJsonUtils::ToJsonString(Config);
-        jstring JTask = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
-        jstring JCfg = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
+        jobject Proxy = Env->NewObject(GBridgeClass, GSentenceCtor);
+        FString Json = FZLAsrJsonUtils::ToJsonString(Config);
+        jstring JTaskId = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
+        jstring JConfig = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
         jbyteArray Arr = Env->NewByteArray(AudioData.Num());
         if (AudioData.Num() > 0)
         {
             Env->SetByteArrayRegion(Arr, 0, AudioData.Num(), reinterpret_cast<const jbyte*>(AudioData.GetData()));
         }
-        jboolean Ok = Env->CallBooleanMethod(Obj, GSentenceData, JTask, JCfg, Arr);
-        Env->DeleteLocalRef(JTask);
-        Env->DeleteLocalRef(JCfg);
+        bool bOk = Env->CallBooleanMethod(Proxy, GSentenceData, JTaskId, JConfig, Arr);
+        Env->DeleteLocalRef(JTaskId);
+        Env->DeleteLocalRef(JConfig);
         Env->DeleteLocalRef(Arr);
-        Env->DeleteLocalRef(Obj);
-        return Ok == JNI_TRUE;
+        Env->DeleteLocalRef(Proxy);
+        return bOk;
     }
 
     virtual bool StartSentenceRecorder(const FString& TaskId, const FZLAsrSentenceConfig& Config) override
@@ -133,28 +132,26 @@ public:
         if (!CacheJNI()) return false;
         Register(TaskId);
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
-        jobject Obj = Env->NewObject(GBridgeClass, GCtor);
-        if (!Obj) return false;
-        const FString Json = FZLAsrJsonUtils::ToJsonString(Config);
-        jstring JTask = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
-        jstring JCfg = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
-        jboolean Ok = Env->CallBooleanMethod(Obj, GSentenceRecorderStart, JTask, JCfg);
-        Env->DeleteLocalRef(JTask);
-        Env->DeleteLocalRef(JCfg);
-        Env->DeleteLocalRef(Obj);
-        return Ok == JNI_TRUE;
+        jobject Proxy = Env->NewObject(GBridgeClass, GSentenceCtor);
+        FString Json = FZLAsrJsonUtils::ToJsonString(Config);
+        jstring JTaskId = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
+        jstring JConfig = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
+        bool bOk = Env->CallBooleanMethod(Proxy, GSentenceRecorderStart, JTaskId, JConfig);
+        Env->DeleteLocalRef(JTaskId);
+        Env->DeleteLocalRef(JConfig);
+        Env->DeleteLocalRef(Proxy);
+        return bOk;
     }
 
     virtual void StopSentenceRecorder(const FString& TaskId) override
     {
         if (!CacheJNI()) return;
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
-        jobject Obj = Env->NewObject(GBridgeClass, GCtor);
-        if (!Obj) return;
-        jstring JTask = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
-        Env->CallVoidMethod(Obj, GSentenceRecorderStop, JTask);
-        Env->DeleteLocalRef(JTask);
-        Env->DeleteLocalRef(Obj);
+        jobject Proxy = Env->NewObject(GBridgeClass, GSentenceCtor);
+        jstring JTaskId = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
+        Env->CallVoidMethod(Proxy, GSentenceRecorderStop, JTaskId);
+        Env->DeleteLocalRef(JTaskId);
+        Env->DeleteLocalRef(Proxy);
     }
 
     virtual bool StartFileRecognizePath(const FString& TaskId, const FZLAsrFileConfig& Config, const FString& FilePath) override
@@ -162,18 +159,17 @@ public:
         if (!CacheJNI()) return false;
         Register(TaskId);
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
-        jobject Obj = Env->NewObject(GBridgeClass, GCtor);
-        if (!Obj) return false;
-        const FString Json = FZLAsrJsonUtils::ToJsonString(Config);
-        jstring JTask = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
-        jstring JCfg = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
+        jobject Proxy = Env->NewObject(GBridgeClass, GFileCtor);
+        FString Json = FZLAsrJsonUtils::ToJsonString(Config);
+        jstring JTaskId = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
+        jstring JConfig = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
         jstring JPath = Env->NewStringUTF(TCHAR_TO_UTF8(*FilePath));
-        jboolean Ok = Env->CallBooleanMethod(Obj, GFilePath, JTask, JCfg, JPath);
-        Env->DeleteLocalRef(JTask);
-        Env->DeleteLocalRef(JCfg);
+        bool bOk = Env->CallBooleanMethod(Proxy, GFilePath, JTaskId, JConfig, JPath);
+        Env->DeleteLocalRef(JTaskId);
+        Env->DeleteLocalRef(JConfig);
         Env->DeleteLocalRef(JPath);
-        Env->DeleteLocalRef(Obj);
-        return Ok == JNI_TRUE;
+        Env->DeleteLocalRef(Proxy);
+        return bOk;
     }
 
     virtual bool StartFileRecognizeData(const FString& TaskId, const FZLAsrFileConfig& Config, const TArray<uint8>& AudioData) override
@@ -181,22 +177,21 @@ public:
         if (!CacheJNI()) return false;
         Register(TaskId);
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
-        jobject Obj = Env->NewObject(GBridgeClass, GCtor);
-        if (!Obj) return false;
-        const FString Json = FZLAsrJsonUtils::ToJsonString(Config);
-        jstring JTask = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
-        jstring JCfg = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
+        jobject Proxy = Env->NewObject(GBridgeClass, GFileCtor);
+        FString Json = FZLAsrJsonUtils::ToJsonString(Config);
+        jstring JTaskId = Env->NewStringUTF(TCHAR_TO_UTF8(*TaskId));
+        jstring JConfig = Env->NewStringUTF(TCHAR_TO_UTF8(*Json));
         jbyteArray Arr = Env->NewByteArray(AudioData.Num());
         if (AudioData.Num() > 0)
         {
             Env->SetByteArrayRegion(Arr, 0, AudioData.Num(), reinterpret_cast<const jbyte*>(AudioData.GetData()));
         }
-        jboolean Ok = Env->CallBooleanMethod(Obj, GFileData, JTask, JCfg, Arr);
-        Env->DeleteLocalRef(JTask);
-        Env->DeleteLocalRef(JCfg);
+        bool bOk = Env->CallBooleanMethod(Proxy, GFileData, JTaskId, JConfig, Arr);
+        Env->DeleteLocalRef(JTaskId);
+        Env->DeleteLocalRef(JConfig);
         Env->DeleteLocalRef(Arr);
-        Env->DeleteLocalRef(Obj);
-        return Ok == JNI_TRUE;
+        Env->DeleteLocalRef(Proxy);
+        return bOk;
     }
 
 private:
@@ -206,24 +201,25 @@ private:
         JNIEnv* Env = FAndroidApplication::GetJavaEnv();
         jclass LocalClass = FAndroidApplication::FindJavaClass("com/zl/asr/ZLAsrNativeEntry");
         if (!LocalClass) return false;
-
-        GBridgeClass = reinterpret_cast<jclass>(Env->NewGlobalRef(LocalClass));
+        GBridgeClass = (jclass)Env->NewGlobalRef(LocalClass);
         Env->DeleteLocalRef(LocalClass);
 
-        GCtor = Env->GetMethodID(GBridgeClass, "<init>", "()V");
+        GRealtimeCtor = Env->GetMethodID(GBridgeClass, "<init>", "()V");
+        GSentenceCtor = GRealtimeCtor;
+        GFileCtor = GRealtimeCtor;
+
         GRealtimeStart = Env->GetMethodID(GBridgeClass, "startRealtime", "(Ljava/lang/String;Ljava/lang/String;)Z");
         GRealtimeStop = Env->GetMethodID(GBridgeClass, "stopRealtime", "(Ljava/lang/String;)V");
         GRealtimeCancel = Env->GetMethodID(GBridgeClass, "cancelRealtime", "(Ljava/lang/String;)V");
+
         GSentenceUrl = Env->GetMethodID(GBridgeClass, "startSentenceUrl", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
         GSentenceData = Env->GetMethodID(GBridgeClass, "startSentenceData", "(Ljava/lang/String;Ljava/lang/String;[B)Z");
         GSentenceRecorderStart = Env->GetMethodID(GBridgeClass, "startSentenceRecorder", "(Ljava/lang/String;Ljava/lang/String;)Z");
         GSentenceRecorderStop = Env->GetMethodID(GBridgeClass, "stopSentenceRecorder", "(Ljava/lang/String;)V");
+
         GFilePath = Env->GetMethodID(GBridgeClass, "startFilePath", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z");
         GFileData = Env->GetMethodID(GBridgeClass, "startFileData", "(Ljava/lang/String;Ljava/lang/String;[B)Z");
-
-        return GCtor && GRealtimeStart && GRealtimeStop && GRealtimeCancel &&
-               GSentenceUrl && GSentenceData && GSentenceRecorderStart &&
-               GSentenceRecorderStop && GFilePath && GFileData;
+        return GRealtimeStart && GRealtimeStop && GRealtimeCancel && GSentenceUrl && GSentenceData && GSentenceRecorderStart && GSentenceRecorderStop && GFilePath && GFileData;
     }
 
     void Register(const FString& TaskId)
@@ -237,6 +233,15 @@ private:
 private:
     IZLAsrTaskSink* Sink = nullptr;
 };
+
+static FString JStringToFString(JNIEnv* Env, jstring Str)
+{
+    if (!Str) return FString();
+    const char* Chars = Env->GetStringUTFChars(Str, 0);
+    FString Out(UTF8_TO_TCHAR(Chars));
+    Env->ReleaseStringUTFChars(Str, Chars);
+    return Out;
+}
 
 extern "C"
 {

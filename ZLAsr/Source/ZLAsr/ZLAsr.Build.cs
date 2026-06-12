@@ -41,10 +41,30 @@ public class ZLAsr : ModuleRules
                 "AudioToolbox"
             });
 
-            PublicAdditionalFrameworks.Add(new Framework("QCloudRealTime", "../ThirdParty/IOS/QCloudRealTime.xcframework.zip"));
-            PublicAdditionalFrameworks.Add(new Framework("QCloudOneSentence", "../ThirdParty/IOS/QCloudOneSentence.xcframework.zip"));
-            PublicAdditionalFrameworks.Add(new Framework("QCloudFileRecognizer", "../ThirdParty/IOS/QCloudFileRecognizer.xcframework.zip"));
-            PublicAdditionalFrameworks.Add(new Framework("VoiceCommon", "../ThirdParty/IOS/VoiceCommon.framework.zip"));
+            PublicAdditionalFrameworks.Add(
+                new Framework(
+                    "QCloudRealTime",
+                    "../ThirdParty/IOS/QCloudRealTime.xcframework.zip"
+                )
+            );
+            PublicAdditionalFrameworks.Add(
+                new Framework(
+                    "QCloudOneSentence",
+                    "../ThirdParty/IOS/QCloudOneSentence.xcframework.zip"
+                )
+            );
+            PublicAdditionalFrameworks.Add(
+                new Framework(
+                    "QCloudFileRecognizer",
+                    "../ThirdParty/IOS/QCloudFileRecognizer.xcframework.zip"
+                )
+            );
+            PublicAdditionalFrameworks.Add(
+                new Framework(
+                    "VoiceCommon",
+                    "../ThirdParty/IOS/VoiceCommon.framework.zip"
+                )
+            );
         }
     }
 }

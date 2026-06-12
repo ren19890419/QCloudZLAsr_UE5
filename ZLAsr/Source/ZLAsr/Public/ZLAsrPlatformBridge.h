@@ -1,4 +1,5 @@
 #pragma once
+
 #include "CoreMinimal.h"
 #include "ZLAsrTypes.h"
 
@@ -20,6 +21,7 @@ class IZLAsrPlatformBridge
 {
 public:
     virtual ~IZLAsrPlatformBridge() = default;
+
     virtual bool Init(IZLAsrTaskSink* InSink) = 0;
 
     virtual bool StartRealtime(const FString& TaskId, const FZLAsrRealtimeConfig& Config) = 0;
@@ -36,7 +38,7 @@ public:
     virtual bool StartFileRecognizeData(const FString& TaskId, const FZLAsrFileConfig& Config, const TArray<uint8>& AudioData) = 0;
 };
 
-class FZLAsrPlatformBridgeFactory
+class ZLASR_API FZLAsrPlatformBridgeFactory
 {
 public:
     static TSharedPtr<IZLAsrPlatformBridge> Create();

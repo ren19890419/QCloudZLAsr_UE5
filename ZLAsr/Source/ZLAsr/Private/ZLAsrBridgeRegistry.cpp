@@ -2,8 +2,8 @@
 
 FZLAsrBridgeRegistry& FZLAsrBridgeRegistry::Get()
 {
-    static FZLAsrBridgeRegistry I;
-    return I;
+    static FZLAsrBridgeRegistry Instance;
+    return Instance;
 }
 
 void FZLAsrBridgeRegistry::Register(const FString& TaskId, IZLAsrTaskSink* Sink)

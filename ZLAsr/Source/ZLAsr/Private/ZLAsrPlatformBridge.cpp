@@ -1,6 +1,6 @@
 #include "ZLAsrPlatformBridge.h"
-#include "ZLAsrJsonUtils.h"
 #include "Async/Async.h"
+#include "ZLAsrJsonUtils.h"
 
 TSharedPtr<IZLAsrPlatformBridge> CreateAndroidBridge();
 TSharedPtr<IZLAsrPlatformBridge> CreateIOSBridge();
@@ -9,7 +9,11 @@ TSharedPtr<IZLAsrPlatformBridge> CreateHarmonyBridge();
 class FZLAsrStubBridge final : public IZLAsrPlatformBridge
 {
 public:
-    virtual bool Init(IZLAsrTaskSink* InSink) override { Sink = InSink; return true; }
+    virtual bool Init(IZLAsrTaskSink* InSink) override
+    {
+        Sink = InSink;
+        return true;
+    }
 
     virtual bool StartRealtime(const FString&, const FZLAsrRealtimeConfig&) override
     {
@@ -17,7 +21,7 @@ public:
         {
             AsyncTask(ENamedThreads::GameThread, [this]()
             {
-                Sink->HandleError(FZLAsrJsonUtils::MakeErrorFromNativeCode(-1, TEXT("Unsupported platform"), TEXT("")));
+                Sink->HandleError(FZLAsrJsonUtils::MakeErrorFromNativeCode(-1, TEXT("Current platform bridge is unsupported on this target"), TEXT("")));
             });
         }
         return false;
@@ -40,11 +44,20 @@ private:
 TSharedPtr<IZLAsrPlatformBridge> FZLAsrPlatformBridgeFactory::Create()
 {
 #if PLATFORM_ANDROID
-    if (TSharedPtr<IZLAsrPlatformBridge> B = CreateAndroidBridge()) return B;
+    if (TSharedPtr<IZLAsrPlatformBridge> Bridge = CreateAndroidBridge())
+    {
+        return Bridge;
+    }
 #elif PLATFORM_IOS
-    if (TSharedPtr<IZLAsrPlatformBridge> B = CreateIOSBridge()) return B;
+    if (TSharedPtr<IZLAsrPlatformBridge> Bridge = CreateIOSBridge())
+    {
+        return Bridge;
+    }
 #else
-    if (TSharedPtr<IZLAsrPlatformBridge> B = CreateHarmonyBridge()) return B;
+    if (TSharedPtr<IZLAsrPlatformBridge> Bridge = CreateHarmonyBridge())
+    {
+        return Bridge;
+    }
 #endif
     return MakeShared<FZLAsrStubBridge>();
 }

@@ -5,35 +5,41 @@
 class FZLAsrHarmonyBridge final : public IZLAsrPlatformBridge
 {
 public:
-    virtual bool Init(IZLAsrTaskSink* InSink) override { Sink = InSink; return true; }
-
-    virtual bool StartRealtime(const FString& TaskId, const FZLAsrRealtimeConfig&) override
+    virtual bool Init(IZLAsrTaskSink* InSink) override
     {
-        Register(TaskId);
-        Report(TEXT("Harmony bridge needs UE <-> ArkTS integration"));
+        Sink = InSink;
+        return true;
+    }
+
+    virtual bool StartRealtime(const FString& TaskId, const FZLAsrRealtimeConfig& Config) override
+    {
+        if (Sink)
+        {
+            FZLAsrBridgeRegistry::Get().Register(TaskId, Sink);
+            Sink->HandleError(FZLAsrJsonUtils::MakeErrorFromNativeCode(4, TEXT("Harmony bridge needs UE<->ArkTS native bridge integration"), TEXT("")));
+        }
         return false;
     }
 
-    virtual void StopRealtime(const FString&) override {}
-    virtual void CancelRealtime(const FString& TaskId) override { FZLAsrBridgeRegistry::Get().Unregister(TaskId); }
-
-    virtual bool StartSentenceFromUrl(const FString& TaskId, const FZLAsrSentenceConfig&, const FString&) override { Register(TaskId); Report(TEXT("Harmony sentence(url) bridge not wired")); return false; }
-    virtual bool StartSentenceFromFile(const FString& TaskId, const FZLAsrSentenceConfig&, const FString&) override { Register(TaskId); Report(TEXT("Harmony sentence(file) bridge not wired")); return false; }
-    virtual bool StartSentenceFromMemory(const FString& TaskId, const FZLAsrSentenceConfig&, const TArray<uint8>&) override { Register(TaskId); Report(TEXT("Harmony sentence(data) bridge not wired")); return false; }
-    virtual bool StartSentenceRecorder(const FString& TaskId, const FZLAsrSentenceConfig&) override { Register(TaskId); Report(TEXT("Harmony recorder bridge not wired")); return false; }
-    virtual void StopSentenceRecorder(const FString&) override {}
-    virtual bool StartFileRecognizePath(const FString& TaskId, const FZLAsrFileConfig&, const FString&) override { Register(TaskId); Report(TEXT("Harmony file(path) bridge not wired")); return false; }
-    virtual bool StartFileRecognizeData(const FString& TaskId, const FZLAsrFileConfig&, const TArray<uint8>&) override { Register(TaskId); Report(TEXT("Harmony file(data) bridge not wired")); return false; }
+    virtual void StopRealtime(const FString& TaskId) override {}
+    virtual void CancelRealtime(const FString& TaskId) override {}
+    virtual bool StartSentenceFromUrl(const FString& TaskId, const FZLAsrSentenceConfig& Config, const FString& Url) override { return StartUnsupported(TaskId); }
+    virtual bool StartSentenceFromFile(const FString& TaskId, const FZLAsrSentenceConfig& Config, const FString& FilePath) override { return StartUnsupported(TaskId); }
+    virtual bool StartSentenceFromMemory(const FString& TaskId, const FZLAsrSentenceConfig& Config, const TArray<uint8>& AudioData) override { return StartUnsupported(TaskId); }
+    virtual bool StartSentenceRecorder(const FString& TaskId, const FZLAsrSentenceConfig& Config) override { return StartUnsupported(TaskId); }
+    virtual void StopSentenceRecorder(const FString& TaskId) override {}
+    virtual bool StartFileRecognizePath(const FString& TaskId, const FZLAsrFileConfig& Config, const FString& FilePath) override { return StartUnsupported(TaskId); }
+    virtual bool StartFileRecognizeData(const FString& TaskId, const FZLAsrFileConfig& Config, const TArray<uint8>& AudioData) override { return StartUnsupported(TaskId); }
 
 private:
-    void Register(const FString& TaskId)
+    bool StartUnsupported(const FString& TaskId)
     {
-        if (Sink) FZLAsrBridgeRegistry::Get().Register(TaskId, Sink);
-    }
-
-    void Report(const FString& Message)
-    {
-        if (Sink) Sink->HandleError(FZLAsrJsonUtils::MakeErrorFromNativeCode(4, Message, TEXT("")));
+        if (Sink)
+        {
+            FZLAsrBridgeRegistry::Get().Register(TaskId, Sink);
+            Sink->HandleError(FZLAsrJsonUtils::MakeErrorFromNativeCode(4, TEXT("Harmony bridge needs UE<->ArkTS native bridge integration"), TEXT("")));
+        }
+        return false;
     }
 
 private:

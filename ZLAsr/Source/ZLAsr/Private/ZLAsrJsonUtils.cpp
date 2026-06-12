@@ -2,28 +2,35 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 
-static TSharedPtr<FJsonObject> MakeAuth(const FZLAsrAuthConfig& InAuth)
+static TSharedPtr<FJsonObject> MakeAuthObject(const FZLAsrAuthConfig& InConfig)
 {
     TSharedPtr<FJsonObject> Obj = MakeShared<FJsonObject>();
-    Obj->SetStringField(TEXT("AppID"), InAuth.AppID);
-    Obj->SetStringField(TEXT("SecretID"), InAuth.SecretID);
-    Obj->SetStringField(TEXT("SecretKey"), InAuth.SecretKey);
-    Obj->SetStringField(TEXT("Token"), InAuth.Token);
+    Obj->SetStringField(TEXT("AppID"), InConfig.AppID);
+    Obj->SetStringField(TEXT("SecretID"), InConfig.SecretID);
+    Obj->SetStringField(TEXT("SecretKey"), InConfig.SecretKey);
+    Obj->SetStringField(TEXT("Token"), InConfig.Token);
+    Obj->SetStringField(TEXT("AuthMode"), StaticEnum<EZLAsrAuthMode>()->GetNameStringByValue((int64)InConfig.AuthMode));
     return Obj;
 }
 
-static FString SerializeObj(TSharedPtr<FJsonObject> Obj)
+template<typename TWriterFactory>
+static FString WriteObjectToString(const TSharedPtr<FJsonObject>& Obj)
 {
     FString Out;
-    auto Writer = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Out);
+    auto Writer = TJsonWriterFactory<TCHAR, TWriterFactory>::Create(&Out);
     FJsonSerializer::Serialize(Obj.ToSharedRef(), Writer);
     return Out;
+}
+
+FString FZLAsrJsonUtils::ToJsonString(const FZLAsrAuthConfig& InConfig)
+{
+    return WriteObjectToString<TCondensedJsonPrintPolicy<TCHAR>>(MakeAuthObject(InConfig));
 }
 
 FString FZLAsrJsonUtils::ToJsonString(const FZLAsrRealtimeConfig& InConfig)
 {
     TSharedPtr<FJsonObject> Obj = MakeShared<FJsonObject>();
-    Obj->SetObjectField(TEXT("Auth"), MakeAuth(InConfig.Auth));
+    Obj->SetObjectField(TEXT("Auth"), MakeAuthObject(InConfig.Auth));
     Obj->SetStringField(TEXT("EngineModelType"), InConfig.EngineModelType);
     Obj->SetNumberField(TEXT("FilterDirty"), InConfig.FilterDirty);
     Obj->SetNumberField(TEXT("FilterModal"), InConfig.FilterModal);
@@ -38,13 +45,15 @@ FString FZLAsrJsonUtils::ToJsonString(const FZLAsrRealtimeConfig& InConfig)
     Obj->SetBoolField(TEXT("EnableVolume"), InConfig.bEnableVolume);
     Obj->SetBoolField(TEXT("EnableSilenceDetect"), InConfig.bEnableSilenceDetect);
     Obj->SetNumberField(TEXT("SilenceTimeoutMs"), InConfig.SilenceTimeoutMs);
-    return SerializeObj(Obj);
+    Obj->SetBoolField(TEXT("SaveAudioToFile"), InConfig.bSaveAudioToFile);
+    Obj->SetStringField(TEXT("SaveAudioPath"), InConfig.SaveAudioPath);
+    return WriteObjectToString<TCondensedJsonPrintPolicy<TCHAR>>(Obj);
 }
 
 FString FZLAsrJsonUtils::ToJsonString(const FZLAsrSentenceConfig& InConfig)
 {
     TSharedPtr<FJsonObject> Obj = MakeShared<FJsonObject>();
-    Obj->SetObjectField(TEXT("Auth"), MakeAuth(InConfig.Auth));
+    Obj->SetObjectField(TEXT("Auth"), MakeAuthObject(InConfig.Auth));
     Obj->SetStringField(TEXT("EngSerViceType"), InConfig.EngSerViceType);
     Obj->SetStringField(TEXT("VoiceFormat"), InConfig.VoiceFormat);
     Obj->SetNumberField(TEXT("FilterDirty"), InConfig.FilterDirty);
@@ -53,13 +62,13 @@ FString FZLAsrJsonUtils::ToJsonString(const FZLAsrSentenceConfig& InConfig)
     Obj->SetNumberField(TEXT("ConvertNumMode"), InConfig.ConvertNumMode);
     Obj->SetNumberField(TEXT("WordInfo"), InConfig.WordInfo);
     Obj->SetStringField(TEXT("HotwordID"), InConfig.HotwordID);
-    return SerializeObj(Obj);
+    return WriteObjectToString<TCondensedJsonPrintPolicy<TCHAR>>(Obj);
 }
 
 FString FZLAsrJsonUtils::ToJsonString(const FZLAsrFileConfig& InConfig)
 {
     TSharedPtr<FJsonObject> Obj = MakeShared<FJsonObject>();
-    Obj->SetObjectField(TEXT("Auth"), MakeAuth(InConfig.Auth));
+    Obj->SetObjectField(TEXT("Auth"), MakeAuthObject(InConfig.Auth));
     Obj->SetStringField(TEXT("EngineModelType"), InConfig.EngineModelType);
     Obj->SetStringField(TEXT("VoiceFormat"), InConfig.VoiceFormat);
     Obj->SetNumberField(TEXT("FilterDirty"), InConfig.FilterDirty);
@@ -71,7 +80,7 @@ FString FZLAsrJsonUtils::ToJsonString(const FZLAsrFileConfig& InConfig)
     Obj->SetNumberField(TEXT("WordInfo"), InConfig.WordInfo);
     Obj->SetStringField(TEXT("CustomizationID"), InConfig.CustomizationID);
     Obj->SetStringField(TEXT("HotwordID"), InConfig.HotwordID);
-    return SerializeObj(Obj);
+    return WriteObjectToString<TCondensedJsonPrintPolicy<TCHAR>>(Obj);
 }
 
 bool FZLAsrJsonUtils::ParseJsonObject(const FString& Json, TSharedPtr<FJsonObject>& OutObj)
@@ -82,67 +91,94 @@ bool FZLAsrJsonUtils::ParseJsonObject(const FString& Json, TSharedPtr<FJsonObjec
 
 FZLAsrSegmentResult FZLAsrJsonUtils::ParseRealtimeSegment(const FString& Json)
 {
-    FZLAsrSegmentResult R;
-    R.RawJson = Json;
+    FZLAsrSegmentResult Result;
+    Result.RawJson = Json;
+
     TSharedPtr<FJsonObject> Obj;
     if (!ParseJsonObject(Json, Obj))
     {
-        R.Message = TEXT("Invalid Json");
-        return R;
+        Result.Message = TEXT("Invalid Json");
+        return Result;
     }
-    if (Obj->HasField(TEXT("text"))) R.Text = Obj->GetStringField(TEXT("text"));
-    if (Obj->HasField(TEXT("seq"))) R.Seq = (int32)Obj->GetIntegerField(TEXT("seq"));
-    if (Obj->HasField(TEXT("sliceType"))) R.SliceType = (int32)Obj->GetIntegerField(TEXT("sliceType"));
-    if (Obj->HasField(TEXT("startTime"))) R.StartTime = (int32)Obj->GetIntegerField(TEXT("startTime"));
-    if (Obj->HasField(TEXT("endTime"))) R.EndTime = (int32)Obj->GetIntegerField(TEXT("endTime"));
-    if (Obj->HasField(TEXT("voiceId"))) R.VoiceId = Obj->GetStringField(TEXT("voiceId"));
-    if (Obj->HasField(TEXT("message"))) R.Message = Obj->GetStringField(TEXT("message"));
-    return R;
+
+    Result.Text = Obj->GetStringField(TEXT("text"));
+    Result.Seq = Obj->HasField(TEXT("seq")) ? (int32)Obj->GetIntegerField(TEXT("seq")) : 0;
+    Result.SliceType = Obj->HasField(TEXT("sliceType")) ? (int32)Obj->GetIntegerField(TEXT("sliceType")) : (Obj->HasField(TEXT("slice_type")) ? (int32)Obj->GetIntegerField(TEXT("slice_type")) : 0);
+    Result.StartTime = Obj->HasField(TEXT("startTime")) ? (int32)Obj->GetIntegerField(TEXT("startTime")) : 0;
+    Result.EndTime = Obj->HasField(TEXT("endTime")) ? (int32)Obj->GetIntegerField(TEXT("endTime")) : 0;
+    Result.VoiceId = Obj->HasField(TEXT("voiceId")) ? Obj->GetStringField(TEXT("voiceId")) : TEXT("");
+    Result.Message = Obj->HasField(TEXT("message")) ? Obj->GetStringField(TEXT("message")) : TEXT("");
+    return Result;
 }
 
 FZLAsrRecognitionResult FZLAsrJsonUtils::ParseRecognitionResult(const FString& Json)
 {
-    FZLAsrRecognitionResult R;
-    R.RawJson = Json;
-    R.bSuccess = true;
+    FZLAsrRecognitionResult Result;
+    Result.RawJson = Json;
+    Result.bSuccess = true;
+
     TSharedPtr<FJsonObject> Obj;
     if (!ParseJsonObject(Json, Obj))
     {
-        R.bSuccess = false;
-        R.Text = Json;
-        return R;
+        Result.bSuccess = false;
+        Result.Text = Json;
+        return Result;
     }
-    if (Obj->HasField(TEXT("text"))) R.Text = Obj->GetStringField(TEXT("text"));
-    else if (Obj->HasField(TEXT("result"))) R.Text = Obj->GetStringField(TEXT("result"));
-    if (Obj->HasField(TEXT("request_id"))) R.RequestId = Obj->GetStringField(TEXT("request_id"));
+
+    if (Obj->HasField(TEXT("text")))
+    {
+        Result.Text = Obj->GetStringField(TEXT("text"));
+    }
+    else if (Obj->HasField(TEXT("result")))
+    {
+        Result.Text = Obj->GetStringField(TEXT("result"));
+    }
+    else
+    {
+        Result.Text = Json;
+    }
+
+    if (Obj->HasField(TEXT("request_id")))
+    {
+        Result.RequestId = Obj->GetStringField(TEXT("request_id"));
+    }
+    else if (Obj->HasField(TEXT("requestId")))
+    {
+        Result.RequestId = Obj->GetStringField(TEXT("requestId"));
+    }
+
     if (Obj->HasField(TEXT("code")))
     {
-        R.StatusCode = (int32)Obj->GetIntegerField(TEXT("code"));
-        R.bSuccess = R.StatusCode == 0;
+        Result.StatusCode = (int32)Obj->GetIntegerField(TEXT("code"));
+        Result.bSuccess = Result.StatusCode == 0;
     }
-    return R;
+
+    return Result;
 }
 
 FZLAsrError FZLAsrJsonUtils::MakeErrorFromNativeCode(int32 NativeCode, const FString& Message, const FString& Raw)
 {
-    FZLAsrError E;
-    E.NativeCode = NativeCode;
-    E.Message = Message;
-    E.Raw = Raw;
+    FZLAsrError Err;
+    Err.NativeCode = NativeCode;
+    Err.Message = Message;
+    Err.Raw = Raw;
+
     switch (NativeCode)
     {
-        case -100: E.Code = EZLAsrErrorCode::MicInitFailed; break;
-        case -101: E.Code = EZLAsrErrorCode::MicStartFailed; break;
-        case -104: E.Code = EZLAsrErrorCode::DataSourceError; break;
-        case -105: E.Code = EZLAsrErrorCode::InvalidParameter; break;
-        case -106: E.Code = EZLAsrErrorCode::Network; break;
-        case 1: E.Code = EZLAsrErrorCode::Network; break;
-        case 2: E.Code = EZLAsrErrorCode::ServerError; break;
-        case 3: E.Code = EZLAsrErrorCode::AuthFailed; break;
-        case 4: E.Code = EZLAsrErrorCode::InvalidParameter; break;
-        case 5: E.Code = EZLAsrErrorCode::Cancelled; break;
-        case 7: E.Code = EZLAsrErrorCode::DataSourceError; break;
-        default: E.Code = EZLAsrErrorCode::Unknown; break;
+        case -100: Err.Code = EZLAsrErrorCode::MicInitFailed; break;
+        case -101: Err.Code = EZLAsrErrorCode::MicStartFailed; break;
+        case -102: Err.Code = EZLAsrErrorCode::MicStartFailed; break;
+        case -103: Err.Code = EZLAsrErrorCode::MicInitFailed; break;
+        case -104: Err.Code = EZLAsrErrorCode::DataSourceError; break;
+        case -105: Err.Code = EZLAsrErrorCode::InvalidParameter; break;
+        case -106: Err.Code = EZLAsrErrorCode::Network; break;
+        case 1: Err.Code = EZLAsrErrorCode::Network; break;
+        case 2: Err.Code = EZLAsrErrorCode::ServerError; break;
+        case 3: Err.Code = EZLAsrErrorCode::AuthFailed; break;
+        case 4: Err.Code = EZLAsrErrorCode::InvalidParameter; break;
+        case 5: Err.Code = EZLAsrErrorCode::Cancelled; break;
+        case 7: Err.Code = EZLAsrErrorCode::DataSourceError; break;
+        default: Err.Code = EZLAsrErrorCode::Unknown; break;
     }
-    return E;
+    return Err;
 }

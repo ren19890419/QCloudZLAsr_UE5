@@ -1,14 +1,14 @@
 {
   "FileVersion": 3,
-  "Version": 1,
-  "VersionName": "1.0.0",
+  "Version": 2,
+  "VersionName": "0.2.0",
   "FriendlyName": "ZLAsr",
-  "Description": "UE speech recognition plugin for Android / iOS / Harmony based on Tencent Cloud ASR SDK wrappers.",
+  "Description": "UE5 speech recognition plugin for Android/iOS/Harmony based on Tencent Cloud ASR SDKs.",
   "Category": "Audio",
   "CreatedBy": "OpenAI",
   "CanContainContent": false,
-  "Installed": false,
   "IsBetaVersion": true,
+  "Installed": false,
   "Modules": [
     {
       "Name": "ZLAsr",

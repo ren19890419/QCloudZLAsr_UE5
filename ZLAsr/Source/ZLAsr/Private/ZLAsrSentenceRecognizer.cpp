@@ -1,12 +1,16 @@
 #include "ZLAsrSentenceRecognizer.h"
 #include "Async/Async.h"
+#include "Misc/FileHelper.h"
 #include "ZLAsrBridgeRegistry.h"
 
 UZLAsrSentenceRecognizer::UZLAsrSentenceRecognizer()
 {
     TaskId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
     Bridge = FZLAsrPlatformBridgeFactory::Create();
-    if (Bridge.IsValid()) Bridge->Init(this);
+    if (Bridge.IsValid())
+    {
+        Bridge->Init(this);
+    }
 }
 
 bool UZLAsrSentenceRecognizer::RecognizeFromUrl(const FZLAsrSentenceConfig& Config, const FString& Url)
@@ -33,7 +37,10 @@ bool UZLAsrSentenceRecognizer::StartRecognizeWithRecorder(const FZLAsrSentenceCo
 void UZLAsrSentenceRecognizer::StopRecognizeWithRecorder()
 {
     bRecording = false;
-    if (Bridge.IsValid()) Bridge->StopSentenceRecorder(TaskId);
+    if (Bridge.IsValid())
+    {
+        Bridge->StopSentenceRecorder(TaskId);
+    }
 }
 
 void UZLAsrSentenceRecognizer::HandleSentenceResult(const FZLAsrRecognitionResult& Result)

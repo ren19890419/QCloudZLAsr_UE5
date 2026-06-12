@@ -6,7 +6,10 @@ UZLAsrFileRecognizer::UZLAsrFileRecognizer()
 {
     TaskId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
     Bridge = FZLAsrPlatformBridgeFactory::Create();
-    if (Bridge.IsValid()) Bridge->Init(this);
+    if (Bridge.IsValid())
+    {
+        Bridge->Init(this);
+    }
 }
 
 bool UZLAsrFileRecognizer::RecognizeFile(const FZLAsrFileConfig& Config, const FString& FilePath)

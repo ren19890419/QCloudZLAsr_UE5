@@ -3,9 +3,10 @@
 #include "Dom/JsonObject.h"
 #include "ZLAsrTypes.h"
 
-class FZLAsrJsonUtils
+class ZLASR_API FZLAsrJsonUtils
 {
 public:
+    static FString ToJsonString(const FZLAsrAuthConfig& InConfig);
     static FString ToJsonString(const FZLAsrRealtimeConfig& InConfig);
     static FString ToJsonString(const FZLAsrSentenceConfig& InConfig);
     static FString ToJsonString(const FZLAsrFileConfig& InConfig);

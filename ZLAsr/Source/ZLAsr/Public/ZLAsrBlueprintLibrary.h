@@ -1,4 +1,5 @@
 #pragma once
+
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "ZLAsrBlueprintLibrary.generated.h"
@@ -8,7 +9,7 @@ class UZLAsrSentenceRecognizer;
 class UZLAsrFileRecognizer;
 
 UCLASS()
-class UZLAsrBlueprintLibrary : public UBlueprintFunctionLibrary
+class ZLASR_API UZLAsrBlueprintLibrary : public UBlueprintFunctionLibrary
 {
     GENERATED_BODY()
 
